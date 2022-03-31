@@ -1,3 +1,8 @@
+# Water shader
+Based on NPGR019 06-shading example by Martin Kahoun.
+
+Assingment for CGCG by Jiří Filek
+
 # NPGR019
 NPGR019 is a source code repository for [lab practices](https://cgg.mff.cuni.cz/~kahoun/labs.npgr019.php)
 of the subject [Real-time graphics on GPU](https://is.cuni.cz/studium/predmety/index.php?do=predmet&kod=NPGR019).
