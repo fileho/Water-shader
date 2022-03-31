@@ -33,3 +33,8 @@
 
 .vs/
 bin/
+
+06-shading/bin
+06-shading/x64
+06-shading/Debug
+06-shading/Release
