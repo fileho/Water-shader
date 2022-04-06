@@ -215,6 +215,9 @@ void Textures::CreateSamplers()
     glSamplerParameteri(_samplers[i], GL_TEXTURE_WRAP_S, GL_REPEAT);
     glSamplerParameteri(_samplers[i], GL_TEXTURE_WRAP_T, GL_REPEAT);
   }
+	
+  glSamplerParameteri(_samplers[(int)Sampler::Bilinear], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glSamplerParameteri(_samplers[(int)Sampler::Bilinear], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
   // This one should clamp the texture to edge
   glSamplerParameteri(_samplers[(int)Sampler::AnisotropicClamp], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

@@ -145,11 +145,17 @@ out VertexData
 
 void main()
 {
-  // Pass texture coordinates to the fragment shader
-  vOut.texCoord = texCoord.st;
-
   // Retrieve the model to world matrix from the instance buffer
   mat3x4 modelToWorld = instanceBuffer[gl_InstanceID].modelToWorld;
+	
+  // Transform vertex position, note we multiply from the left because of transposed modelToWorld
+  vOut.worldPos = vec4(vec4(position.xyz, 1.0f) * modelToWorld, 1.0f);
+
+  // Clipping plane for reflexions
+  gl_ClipDistance[0] = dot(clippingPlane, vOut.worldPos);
+	
+  // Pass texture coordinates to the fragment shader
+  vOut.texCoord = texCoord.st;
 
   // Construct the normal transformation matrix
   mat3 normalTransform = transpose(inverse(mat3(modelToWorld)));
@@ -160,11 +166,6 @@ void main()
   vOut.tangent = normalize(tangent * mat3(modelToWorld));
   vOut.bitangent = cross(vOut.tangent, vOut.normal);
 
-  // Transform vertex position, note we multiply from the left because of transposed modelToWorld
-  vOut.worldPos = vec4(vec4(position.xyz, 1.0f) * modelToWorld, 1.0f);
-
-  // Clipping plane
-  gl_ClipDistance[0] = dot(clippingPlane, vOut.worldPos);
   vec4 viewPos = vec4(vOut.worldPos * worldToView, 1.0f);
 
   gl_Position = projection * viewPos;
@@ -234,23 +235,38 @@ layout (std140) uniform TransformBlock
 // Model to world transformation separately, takes 4 slots!
 layout (location = 0) uniform mat3x4 modelToWorld;
 layout (location = 1) uniform float time;
+layout (location = 3) uniform vec4 wave[4];
 
 // Vertex attribute block, i.e., input
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec2 uv;
 
-out vec2 ouv;
+out VertexData
+{
+  vec2 uv;
+  vec4 worldPos;
+} vOut;
 
+float h(vec4 w) {
+  return w.a * sin(uv.x * w.x + uv.y * w.y + w.z * time);
+}
+	
 void main()
 {
   // We must multiply from the left because of transposed worldToView
   vec4 worldPos = vec4(vec4(position, 1f) * modelToWorld, 1f);
   
   // sin wave vertex displacement
-  worldPos += vec4(0, 0.3f * sin(uv.x * 16 + time) + 0.3f * sin(uv.y * 12 + 0.3f + time), 0, 0);
+  worldPos.y += h(wave[0]);
+  worldPos.y += h(wave[1]);
+  worldPos.y += h(wave[2]);
+  worldPos.y += h(wave[3]);
+
+  vOut.uv = uv;
+  vOut.worldPos = worldPos;
+	
   vec4 viewPos = vec4(worldPos * worldToView, 1f);
 
-  ouv = uv;
   gl_Position = projection * viewPos;
 }
 )",
@@ -346,7 +362,7 @@ void main()
   horizon *= horizon;
 
   // Calculate the Phong model terms: ambient, diffuse, specular
-  vec3 ambient = vec3(0.25f, 0.25f, 0.25f) * 2 * occlusion;
+  vec3 ambient = vec3(0.25f, 0.25f, 0.25f) * 3 * occlusion;
   vec3 diffuse = horizon * NdotL * lightColor / lengthSq;
   vec3 specular = horizon * specSample * lightColor * pow(NdotH, 64.0f) / lengthSq; // Defines shininess
 
@@ -441,17 +457,68 @@ R"(
 // Output color
 layout (binding = 0) uniform sampler2D refraction;
 layout (binding = 1) uniform sampler2D reflexion;
-in vec2 ouv;
+	
+layout (location = 1) uniform float time;
+layout (location = 2) uniform vec4 viewPosWS;
+layout (location = 3) uniform vec4 wave[4];
+
+in VertexData
+{
+  vec2 uv;
+  vec4 worldPos;
+} vIn;
+
 out vec4 oColor;
+
+vec3 waveDx(vec4 w) {
+  return vec3(1, 0, w.x * w.a * cos(w.x * vIn.uv.x + w.y * vIn.uv.y + w.z * time));
+}
+vec3 waveDy(vec4 w) {
+  return vec3(0, 1, w.y * w.a * cos(w.x * vIn.uv.x + w.y * vIn.uv.y + w.z * time));
+}
 
 void main()
 {
+  // Calculate Bitangent with unrolled loop
+  vec3 B = waveDx(wave[0]);
+  B += waveDx(wave[1]);
+  B += waveDx(wave[2]);
+  B += waveDx(wave[3]);
+
+  // Calculate Tangent
+  vec3 T = waveDy(wave[0]);
+  T += waveDy(wave[1]);
+  T += waveDy(wave[2]);
+  T += waveDy(wave[3]);
+
+  // Tangent space Normal
+  vec3 N = cross(B, T);
+  N = normalize(N);
+
+  oColor = vec4(N, 1);
+  return;
+	
+  vec2 offset = N.xy / 100;
+  offset = vec2(0,0);
+	
   vec2 coords = vec2(gl_FragCoord.x / 800, gl_FragCoord.y / 600);
-  vec3 refrac = texture(refraction, coords).rgb;
-  vec3 reflex = texture(reflexion, vec2(coords.x, 1 - coords.y)).rgb;
-  //oColor = mix(mix(vec4(refrac, 1.0f), vec4(0, 0, 1, 1), .4f), vec4(reflex,1), .2f);
-	oColor = vec4(reflex, 1f);
- // oColor = mix(vec4(s, 1.0f), vec4(0,0,1,1), .4f);
+  vec3 refrac = texture(refraction, coords + offset).rgb;
+  vec3 reflex = texture(reflexion, vec2(coords.x, 1 - coords.y) - offset).rgb;
+
+  vec3 viewDir = normalize(viewPosWS.xyz - vIn.worldPos.xyz);
+	
+  // Reflexion coefficient calculated using fresnel equations (n1 = 1, n2 = 1.333)
+  float angle = max(dot(viewDir, vec3(0,1,0)),0);
+  const float n2 = 1.333;
+  float rhs = n2 * sqrt(1 - (1 / n2 * pow(sin(acos(angle)), 2)));
+  float refCoef = pow((angle - rhs) / (angle + rhs), 2);
+
+  // float R0 = 0.02037;
+  // float refCoef = R0 + (1 - R0) * pow(1 - max(dot(viewDir, vec3(0,1,0)), 0), 5);
+	
+  oColor = mix(mix(vec4(refrac, 1.0), vec4(0, 0, 1, 1), 0.2), vec4(reflex,1), refCoef);
+
+  oColor = vec4(reflex, 1);
 }
 )",
 	

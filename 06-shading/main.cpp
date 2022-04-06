@@ -361,7 +361,7 @@ void createGeometry()
 		{
 			if (!i && !j)
 				continue;
-			cubePositions.emplace_back(i * offset, -4.0f, j * offset);
+			cubePositions.emplace_back(i * offset, -14.0f, j * offset);
 		}
 	}
 	cubePositions.emplace_back(20, 8, 4);
@@ -675,7 +675,7 @@ void updateInstanceData()
 	for (int i = 0; i < numCubes; ++i)
 	{
 		transformation = glm::translate(cubePositions[i]);
-		transformation *= glm::scale(glm::vec3(30,12,30));
+		transformation *= glm::scale(glm::vec3(30,30,30));
 		instanceData[i].transformation = glm::transpose(transformation);
 	}
 
@@ -745,7 +745,7 @@ void draw_geometry(glm::vec4 clippingPlane = glm::vec4(0,0,0,0))
 		updateProgramData(shaderProgram[ShaderProgram::Default], lightPosition);
 
 		// Create transformation matrix - 4 columns, 3 rows, last (0, 0, 0, 1) implicit to save space
-		glm::mat4x3 transformation = glm::translate(glm::scale(glm::vec3(100.0f, 1.0f, 100.0f)), glm::vec3(0, -10, 0));
+		glm::mat4x3 transformation = glm::translate(glm::scale(glm::vec3(100.0f, 1.0f, 100.0f)), glm::vec3(0, -12, 0));
 		glUniformMatrix4x3fv(0, 1, GL_FALSE, glm::value_ptr(transformation));
 
 		bindTextures(loadedTextures[LoadedTextures::CheckerBoard], loadedTextures[LoadedTextures::Blue], loadedTextures[LoadedTextures::Grey], loadedTextures[LoadedTextures::White]);
@@ -853,7 +853,7 @@ void renderScene()
 	updateTransformBlock();
 
 	draw_geometry();
-	water->draw();
+	water->draw(camera.GetViewToWorld()[3]);
 
 	return;
 

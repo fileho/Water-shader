@@ -20,7 +20,7 @@ public:
 	void set_program(GLuint program);
 	void render_refractions() const;
 	void render_reflexions() const;
-	void draw();
+	void draw(const glm::vec4& viewPosWS);
 
 private:
 	struct render_target
@@ -31,9 +31,10 @@ private:
 
 		void create_ms(GLuint width = 800, GLuint height = 600);
 		void create(GLuint width = 800, GLuint height = 600);
+		
 		~render_target() noexcept;
 	};
-	
+
 	render_target refractions_{};
 	render_target reflexions_{};
 
@@ -43,6 +44,8 @@ private:
 
 
 	time_t start_time_;
+
+	const float tau_ = 6.28318530718f;
 	[[nodiscard]] float get_time() const;
 };
 

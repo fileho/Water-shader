@@ -87,15 +87,13 @@ glm::mat4x4 Camera::PlanarReflexion()
 {
     // Prepare the new transformation matrix
     glm::mat4x4 transform(_viewToWorld[0], _viewToWorld[1], _viewToWorld[2], glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-    glm::vec4& aside = transform[0];
-    glm::vec4& up = transform[1];
     glm::vec4& dir = transform[2];
 
     // Update the camera orientation
     float yaw = atan2(dir.z, dir.x);
     float pitch = asin(dir.y);
 
-    pitch *= -1;
+    pitch *= -1.0f;
 
     // Checking for reaching or overflowing 90 degrees pitch to avoid singularities
     if (fabs(pitch) > glm::radians(89.0f))
@@ -114,8 +112,7 @@ glm::mat4x4 Camera::PlanarReflexion()
     // Move the camera position
     glm::vec4& position = transform[3];
     position = _viewToWorld[3];
-    position[1] *= -1;
+    position[1] *= -1.0f;
 
     return fastMatrixInverse(transform);
-	
 }

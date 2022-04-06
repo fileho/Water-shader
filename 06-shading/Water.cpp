@@ -39,16 +39,29 @@ void Water::render_reflexions() const
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, reflexions_.fbo);
 	glDisable(GL_MULTISAMPLE);
-	glClearColor(.1f, .1f, .7f, 1.0f);
+	glClearColor(.1f, .1f, .3f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Water::draw()
+void Water::draw(const glm::vec4& viewPosWS)
 {
 	glUseProgram(program_);
 	// set uniforms
 	glUniformMatrix3x4fv(0, 1, GL_FALSE, value_ptr(model_to_world_));
 	glUniform1f(1, get_time());
+	glUniform4fv(2, 1, value_ptr(viewPosWS));
+	
+	glm::vec4 wave[] = 
+	{
+		glm::vec4(3.0f * tau_, 0, 1, 0.2f),
+		glm::vec4(0, 9.3f * tau_, 0.6, 0.2f),
+		glm::vec4(-1.8f * tau_, 2.0f * tau_, 1.0f, 0.1f),
+		glm::vec4(1.6f * tau_, 3.2f * tau_, 1.1f, 0.1f),
+		
+	};
+	glUniform4fv(3, 4, &(wave[0].x));
+
+	// bind textures
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, refractions_.texture);
 	glBindSampler(0, Textures::GetInstance().GetSampler(Sampler::Bilinear));
