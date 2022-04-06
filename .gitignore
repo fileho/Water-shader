@@ -32,7 +32,6 @@
 *.app
 
 .vs/
-bin/
 
 06-shading/bin
 06-shading/x64
