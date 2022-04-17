@@ -235,7 +235,7 @@ layout (std140) uniform TransformBlock
 // Model to world transformation separately, takes 4 slots!
 layout (location = 0) uniform mat3x4 modelToWorld;
 layout (location = 1) uniform float time;
-layout (location = 3) uniform vec4 wave[4];
+layout (location = 4) uniform vec4 wave[4];
 
 // Vertex attribute block, i.e., input
 layout (location = 0) in vec3 position;
@@ -457,10 +457,13 @@ R"(
 // Output color
 layout (binding = 0) uniform sampler2D refraction;
 layout (binding = 1) uniform sampler2D reflexion;
+layout (binding = 2) uniform sampler2D depth;
+layout (binding = 3) uniform sampler2D bump;
 	
 layout (location = 1) uniform float time;
-layout (location = 2) uniform vec4 viewPosWS;
-layout (location = 3) uniform vec4 wave[4];
+layout (location = 2) uniform vec2 resolution;
+layout (location = 3) uniform vec4 viewPosWS;
+layout (location = 4) uniform vec4 wave[4];
 
 in VertexData
 {
@@ -470,12 +473,23 @@ in VertexData
 
 out vec4 oColor;
 
+
+
 vec3 waveDx(vec4 w) {
   return vec3(1, 0, w.x * w.a * cos(w.x * vIn.uv.x + w.y * vIn.uv.y + w.z * time));
 }
 vec3 waveDy(vec4 w) {
   return vec3(0, 1, w.y * w.a * cos(w.x * vIn.uv.x + w.y * vIn.uv.y + w.z * time));
 }
+
+float remapDepth(float d) {
+  return min(d * 5.0f + 0.1f, 1.0f);
+}
+
+float smoothEdges(float d) {
+  return clamp((d - 0.0f), 0.0f, 0.1f);
+}
+	
 
 void main()
 {
@@ -494,18 +508,34 @@ void main()
   // Tangent space Normal
   vec3 N = cross(B, T);
   N = normalize(N);
+  
+	
+  vec2 coords = vec2(gl_FragCoord.x / resolution.x, gl_FragCoord.y / resolution.y);
+  float d = texture(depth, coords).r; // sample depth map
+  // Calculate depth of the water - refraction map depth - surface depth
+  float z = gl_FragCoord.z;
+  float n = 0.5f;
+  float f = 200.1f;
+  float linearZ = (2.0 * n) / (f + n - z*(f-n));
+  float linearD = (2.0 * n) / (f + n - d*(f-n));
+  linearD -= linearZ;
+  d = remapDepth(linearD);
 
-  oColor = vec4(N, 1);
-  return;
+
+  vec2 bumpCoords = sin(vIn.uv + vec2(time * 0.02f, time * 0.01f)) * 0.5f + 0.5f; // remap to [0, 1]
+  vec2 bm = texture(bump, bumpCoords).rg * 2.0f - 1.0f; // remap to [-1,1]
+
+  // Calculate sample offsets and scale it by depth for smooth edges
+  vec3 view = viewPosWS.xyz - vIn.worldPos.xyz;
+  float viewDistance = max(length(view), 10.0f);
+  vec2 offset = N.xy / 5.0f / viewDistance; // scale down normals based on view distance
+  offset += bm * 0.4f / viewDistance;
+
 	
-  vec2 offset = N.xy / 100;
-  offset = vec2(0,0);
-	
-  vec2 coords = vec2(gl_FragCoord.x / 800, gl_FragCoord.y / 600);
   vec3 refrac = texture(refraction, coords + offset).rgb;
   vec3 reflex = texture(reflexion, vec2(coords.x, 1 - coords.y) - offset).rgb;
 
-  vec3 viewDir = normalize(viewPosWS.xyz - vIn.worldPos.xyz);
+  vec3 viewDir = normalize(view);
 	
   // Reflexion coefficient calculated using fresnel equations (n1 = 1, n2 = 1.333)
   float angle = max(dot(viewDir, vec3(0,1,0)),0);
@@ -515,10 +545,13 @@ void main()
 
   // float R0 = 0.02037;
   // float refCoef = R0 + (1 - R0) * pow(1 - max(dot(viewDir, vec3(0,1,0)), 0), 5);
+
+
 	
   oColor = mix(mix(vec4(refrac, 1.0), vec4(0, 0, 1, 1), 0.2), vec4(reflex,1), refCoef);
+  oColor = mix(mix(vec4(refrac, 1.0f), vec4(0, 0.5f, 0.8f, 1.0f), d), vec4(reflex,1), refCoef);
 
-  oColor = vec4(reflex, 1);
+  //oColor = vec4(reflex, 1);
 }
 )",
 	

@@ -28,8 +28,9 @@
 // GLM_FORCE_XYZW_ONLY         - simplify vector types and draw x, y, z, w only
 // ----------------------------------------------------------------------------
 // For remapping depth to [0, 1] interval draw GLM option below with glClipControl
-// glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE); // requires version >= 4.5
-//
+
+//glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE); // requires version >= 4.5
+// //
 // GLM_FORCE_DEPTH_ZERO_TO_ONE - force projection depth mapping to [0, 1]
 //                               must draw glClipControl(), requires OpenGL 4.5
 //
@@ -56,7 +57,7 @@ struct Window
 // ----------------------------------------------------------------------------
 
 // Near clip plane settings
-float nearClipPlane = 0.1f;
+float nearClipPlane = 0.5f;
 // Far clip plane settings
 float farClipPlane = 200.1f;
 // Camera FOV
@@ -153,7 +154,7 @@ namespace LoadedTextures
 {
 	enum
 	{
-		White, Grey, Blue, CheckerBoard, Diffuse, Normal, Specular, Occlusion, NumTextures
+		White, Grey, Blue, CheckerBoard, Diffuse, Normal, Specular, Occlusion, BumpMap, NumTextures
 	};
 }
 GLuint loadedTextures[LoadedTextures::NumTextures] = {0};
@@ -184,6 +185,8 @@ void resizeCallback(GLFWwindow* window, int width, int height)
 	mainWindow.height = height;
 	glViewport(0, 0, width, height);
 	camera.SetProjection(fov, (float)width / (float)height, nearClipPlane, farClipPlane);
+	if (water)
+		water->set_resolution(width, height);
 
 	createFramebuffer(width, height, msaaLevel);
 }
@@ -297,6 +300,7 @@ void loadTextures()
 	loadedTextures[LoadedTextures::Normal] = Textures::LoadTexture("data/Terracotta_Tiles_002_Normal.jpg", false);
 	loadedTextures[LoadedTextures::Specular] = Textures::LoadTexture("data/Terracotta_Tiles_002_Roughness.jpg", false);
 	loadedTextures[LoadedTextures::Occlusion] = Textures::LoadTexture("data/Terracotta_Tiles_002_ambientOcclusion.jpg", false);
+	loadedTextures[LoadedTextures::BumpMap] = Textures::LoadTexture("data/water_bump.jpg", false);
 }
 
 // Helper method for creating scene geometry
@@ -378,7 +382,7 @@ bool initOpenGL()
 
 	// Request OpenGL 3.3 core profile upon window creation
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
 	glfwWindowHint(GLFW_SAMPLES, 0); // Disable MSAA, we'll handle it ourselves
 #if _ENABLE_OPENGL_DEBUG
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
@@ -440,6 +444,7 @@ bool initOpenGL()
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
+	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
 	// Register a window resize callback
 	glfwSetFramebufferSizeCallback(mainWindow.handle, resizeCallback);
@@ -965,6 +970,7 @@ int main()
 
 	// Set Water shader
 	water->set_program(shaderProgram[ShaderProgram::Water]);
+	water->set_bump_map(loadedTextures[LoadedTextures::BumpMap]);
 
 	// Enter the application main loop
 	mainLoop();
