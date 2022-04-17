@@ -224,50 +224,12 @@ void main()
 R"(
 #version 430 core
 
-// Uniform blocks, i.e., constants
-layout (std140) uniform TransformBlock
-{
-  // Transposed worldToView matrix - stored compactly as an array of 3 x vec4
-  mat3x4 worldToView;
-  mat4x4 projection;
-};
-
-// Model to world transformation separately, takes 4 slots!
-layout (location = 0) uniform mat3x4 modelToWorld;
-layout (location = 1) uniform float time;
-layout (location = 4) uniform vec4 wave[4];
-
 // Vertex attribute block, i.e., input
 layout (location = 0) in vec3 position;
-layout (location = 1) in vec2 uv;
-
-out VertexData
-{
-  vec2 uv;
-  vec4 worldPos;
-} vOut;
-
-float h(vec4 w) {
-  return w.a * sin(uv.x * w.x + uv.y * w.y + w.z * time);
-}
 	
 void main()
 {
-  // We must multiply from the left because of transposed worldToView
-  vec4 worldPos = vec4(vec4(position, 1f) * modelToWorld, 1f);
-  
-  // sin wave vertex displacement
-  worldPos.y += h(wave[0]);
-  worldPos.y += h(wave[1]);
-  worldPos.y += h(wave[2]);
-  worldPos.y += h(wave[3]);
-
-  vOut.uv = uv;
-  vOut.worldPos = worldPos;
-	
-  vec4 viewPos = vec4(worldPos * worldToView, 1f);
-
-  gl_Position = projection * viewPos;
+  gl_Position = vec4(position, 1.0f);
 }
 )",
 ""};
@@ -473,8 +435,6 @@ in VertexData
 
 out vec4 oColor;
 
-
-
 vec3 waveDx(vec4 w) {
   return vec3(1, 0, w.x * w.a * cos(w.x * vIn.uv.x + w.y * vIn.uv.y + w.z * time));
 }
@@ -493,23 +453,24 @@ float smoothEdges(float d) {
 
 void main()
 {
+	
   // Calculate Bitangent with unrolled loop
   vec3 B = waveDx(wave[0]);
   B += waveDx(wave[1]);
   B += waveDx(wave[2]);
   B += waveDx(wave[3]);
-
+  
   // Calculate Tangent
   vec3 T = waveDy(wave[0]);
   T += waveDy(wave[1]);
   T += waveDy(wave[2]);
   T += waveDy(wave[3]);
-
+  
   // Tangent space Normal
   vec3 N = cross(B, T);
   N = normalize(N);
   
-	
+
   vec2 coords = vec2(gl_FragCoord.x / resolution.x, gl_FragCoord.y / resolution.y);
   float d = texture(depth, coords).r; // sample depth map
   // Calculate depth of the water - refraction map depth - surface depth
@@ -520,37 +481,37 @@ void main()
   float linearD = (2.0 * n) / (f + n - d*(f-n));
   linearD -= linearZ;
   d = remapDepth(linearD);
-
-
+  
+  
   vec2 bumpCoords = sin(vIn.uv + vec2(time * 0.02f, time * 0.01f)) * 0.5f + 0.5f; // remap to [0, 1]
   vec2 bm = texture(bump, bumpCoords).rg * 2.0f - 1.0f; // remap to [-1,1]
-
+  
   // Calculate sample offsets and scale it by depth for smooth edges
   vec3 view = viewPosWS.xyz - vIn.worldPos.xyz;
   float viewDistance = max(length(view), 10.0f);
   vec2 offset = N.xy / 5.0f / viewDistance; // scale down normals based on view distance
   offset += bm * 0.4f / viewDistance;
+  
 
-	
   vec3 refrac = texture(refraction, coords + offset).rgb;
   vec3 reflex = texture(reflexion, vec2(coords.x, 1 - coords.y) - offset).rgb;
-
+  
   vec3 viewDir = normalize(view);
-	
+
   // Reflexion coefficient calculated using fresnel equations (n1 = 1, n2 = 1.333)
   float angle = max(dot(viewDir, vec3(0,1,0)),0);
   const float n2 = 1.333;
   float rhs = n2 * sqrt(1 - (1 / n2 * pow(sin(acos(angle)), 2)));
   float refCoef = pow((angle - rhs) / (angle + rhs), 2);
-
+  
   // float R0 = 0.02037;
   // float refCoef = R0 + (1 - R0) * pow(1 - max(dot(viewDir, vec3(0,1,0)), 0), 5);
+  
+  
 
-
-	
   oColor = mix(mix(vec4(refrac, 1.0), vec4(0, 0, 1, 1), 0.2), vec4(reflex,1), refCoef);
   oColor = mix(mix(vec4(refrac, 1.0f), vec4(0, 0.5f, 0.8f, 1.0f), d), vec4(reflex,1), refCoef);
-
+  
   //oColor = vec4(reflex, 1);
 }
 )",
@@ -563,21 +524,13 @@ R"(
 // tessellation control shader
 #version 430 core
 
-// specify number of control points per patch output
-// this value controls the size of the input and output arrays
 layout(vertices = 4) out;
-
-// varying input from vertex shader
-in vec2 TexCoord[];
-// varying output to evaluation shader
-out vec2 TextureCoord[];
 
 void main()
 {
     // ----------------------------------------------------------------------
     // pass attributes through
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
-    TextureCoord[gl_InvocationID] = TexCoord[gl_InvocationID];
 
     // ----------------------------------------------------------------------
     // invocation zero controls tessellation levels for the entire patch
@@ -588,15 +541,15 @@ void main()
         gl_TessLevelOuter[2] = 16;
         gl_TessLevelOuter[3] = 16;
 
-        gl_TessLevelInner[0] = 16;
-        gl_TessLevelInner[1] = 16;
+        gl_TessLevelInner[0] = 8;
+        gl_TessLevelInner[1] = 8;
     }
 }
 )",
 R"(
 // tessellation evaluation shader
 #version 430 core
-
+	
 layout (quads, fractional_odd_spacing, ccw) in;
 layout (std140) uniform TransformBlock
 {
@@ -605,9 +558,20 @@ layout (std140) uniform TransformBlock
   mat4x4 projection;
 };
 layout (location = 0) uniform mat3x4 modelToWorld;
+layout (location = 1) uniform float time;
+layout (location = 4) uniform vec4 wave[4];
 
-// received from Tessellation Control Shader - all texture coordinates for the patch vertices
-in vec2 TextureCoord[];
+out VertexData
+{
+    vec2 uv;
+    vec4 worldPos;
+} vOut;
+
+
+float h(vec4 w) {
+  return w.a * sin(vOut.uv.x * w.x + vOut.uv.y * w.y + w.z * time);
+}
+
 
 void main()
 {
@@ -616,43 +580,33 @@ void main()
     float v = gl_TessCoord.y;
 
     // ----------------------------------------------------------------------
-    // retrieve control point texture coordinates
-    vec2 t00 = TextureCoord[0];
-    vec2 t01 = TextureCoord[1];
-    vec2 t10 = TextureCoord[2];
-    vec2 t11 = TextureCoord[3];
-
-    // bilinearly interpolate texture coordinate across patch
-    vec2 t0 = (t01 - t00) * u + t00;
-    vec2 t1 = (t11 - t10) * u + t10;
-    vec2 texCoord = (t1 - t0) * v + t0;
-
-    // ----------------------------------------------------------------------
     // retrieve control point position coordinates
     vec4 p00 = gl_in[0].gl_Position;
     vec4 p01 = gl_in[1].gl_Position;
     vec4 p10 = gl_in[2].gl_Position;
     vec4 p11 = gl_in[3].gl_Position;
 
-    // compute patch surface normal
-    //vec4 uVec = p01 - p00;
-    //vec4 vVec = p10 - p00;
-    //vec4 normal = normalize( vec4(cross(vVec.xyz, uVec.xyz), 0) );
-
     // bilinearly interpolate position coordinate across patch
-    vec4 p0 = (p01 - p00) * u + p00;
-    vec4 p1 = (p11 - p10) * u + p10;
-    vec4 p = (p1 - p0) * v + p0;
+    vec4 p0 = (p01 - p00) * v + p00;
+    vec4 p1 = (p10 - p11) * v + p11;
+    vec4 p = (p1 - p0) * u + p0;
 
-    // displace point along normal
-	float height = sin(texCoord.x);
-	height = 0;
-    p += vec4(0, height, 0, 0);
+	vOut.uv = vec2(u, v);
+
 
     // ----------------------------------------------------------------------
     // output patch point position in clip space
-	vec4 worldPos = vec4(p * modelToWorld, 1f);
-	vec4 viewPos = vec4(worldPos * worldToView, 1f);
+	vec4 worldPos = vec4(p * modelToWorld, 1.0f);
+
+	// sin wave vertex displacement
+    worldPos.y += h(wave[0]);
+    worldPos.y += h(wave[1]);
+    worldPos.y += h(wave[2]);
+    worldPos.y += h(wave[3]);
+
+	vOut.worldPos = worldPos;
+	
+	vec4 viewPos = vec4(worldPos * worldToView, 1.0f);
 	gl_Position = projection * viewPos;
 }
 )"

@@ -39,17 +39,17 @@ Mesh<Vertex_Pos_Col> *Geometry::CreateQuadColor()
   return mesh;
 }
 
-Mesh<Vertex_Pos_Tex> *Geometry::CreateQuadTex()
+Mesh<Vertex_Pos> *Geometry::CreateQuad()
 {
   // Create the vertex buffer for a quad
-  std::vector<Vertex_Pos_Tex> vb;
+  std::vector<Vertex_Pos> vb;
   vb.reserve(4);
 
   // Create vertices
-  vb.push_back({-0.5f, 0.0f, -0.5f, 0.0f, 0.0f});
-  vb.push_back({ 0.5f, 0.0f, -0.5f, 1.0f, 0.0f});
-  vb.push_back({ 0.5f, 0.0f,  0.5f, 1.0f, 1.0f});
-  vb.push_back({-0.5f, 0.0f,  0.5f, 0.0f, 1.0f});
+  vb.push_back({-0.5f, 0.0f, -0.5f});
+  vb.push_back({ -0.5f, 0.0f,  0.5f});
+  vb.push_back({ 0.5f, 0.0f,  0.5f});
+  vb.push_back({ 0.5f, 0.0f, -0.5f});
 
   // Fill in the index buffer
   std::vector<GLuint> ib;
@@ -66,7 +66,7 @@ Mesh<Vertex_Pos_Tex> *Geometry::CreateQuadTex()
   ib.push_back(0);
 
   // Create, initialize and return the mesh
-  Mesh<Vertex_Pos_Tex> *mesh = new Mesh<Vertex_Pos_Tex>();
+  Mesh<Vertex_Pos> *mesh = new Mesh<Vertex_Pos>();
   mesh->Init(vb, ib);
   return mesh;
 }

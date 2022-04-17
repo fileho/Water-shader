@@ -8,7 +8,7 @@
 
 
 Water::Water() :
-	mesh_{ Geometry::CreateTessQuad(32) },
+	mesh_{ Geometry::CreateQuad() },
 	model_to_world_{ scale(glm::vec3(30, 1, 30)) },
 	start_time_{ clock::now() }
 {
@@ -77,7 +77,9 @@ void Water::draw(const glm::vec4& viewPosWS)
 	glBindSampler(3, Textures::GetInstance().GetSampler(Sampler::Bilinear));
 	// bind vao & draw
 	glBindVertexArray(mesh_->GetVAO());
-	glDrawElements(GL_TRIANGLES, mesh_->GetIBOSize(), GL_UNSIGNED_INT, nullptr);
+
+	glDrawArrays(GL_PATCHES, 0, 4);
+	//glDrawElements(GL_TRIANGLES, mesh_->GetIBOSize(), GL_UNSIGNED_INT, nullptr);
 }
 
 void Water::set_resolution(int width, int height)

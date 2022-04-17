@@ -971,6 +971,7 @@ int main()
 	// Set Water shader
 	water->set_program(shaderProgram[ShaderProgram::Water]);
 	water->set_bump_map(loadedTextures[LoadedTextures::BumpMap]);
+	glPatchParameteri(GL_PATCH_VERTICES, 4);
 
 	// Enter the application main loop
 	mainLoop();

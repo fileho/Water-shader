@@ -9,7 +9,7 @@
 
 class Water
 {
-	typedef Mesh<Vertex_Pos_Tex> mesh;
+	typedef Mesh<Vertex_Pos> mesh;
 	typedef std::chrono::high_resolution_clock clock;
 	typedef std::chrono::time_point<std::chrono::steady_clock> time_t;
 	

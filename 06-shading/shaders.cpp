@@ -11,6 +11,7 @@ bool compileShaders()
 {
 	GLuint vertexShader[VertexShader::NumVertexShaders] = {0};
 	GLuint fragmentShader[FragmentShader::NumFragmentShaders] = {0};
+	GLuint tessShader[2] = {0};
 
 	// Cleanup lambda
 	auto cleanUp = [&vertexShader, &fragmentShader]()
@@ -75,6 +76,11 @@ bool compileShaders()
 	}
 
 
+	tessShader[0] = ShaderCompiler::CompileShader(tsSource, 0, GL_TESS_CONTROL_SHADER);
+	tessShader[1] = ShaderCompiler::CompileShader(tsSource, 1, GL_TESS_EVALUATION_SHADER);
+	
+
+
 	// Create all shader programs:
 	shaderProgram[ShaderProgram::Default] = glCreateProgram();
 	glAttachShader(shaderProgram[ShaderProgram::Default], vertexShader[VertexShader::Default]);
@@ -118,6 +124,9 @@ bool compileShaders()
 	shaderProgram[ShaderProgram::Water] = glCreateProgram();
 	glAttachShader(shaderProgram[ShaderProgram::Water], vertexShader[VertexShader::Water]);
 	glAttachShader(shaderProgram[ShaderProgram::Water], fragmentShader[FragmentShader::Water]);
+	glAttachShader(shaderProgram[ShaderProgram::Water], tessShader[0]);
+	glAttachShader(shaderProgram[ShaderProgram::Water], tessShader[1]);
+	
 	if (!ShaderCompiler::LinkProgram(shaderProgram[ShaderProgram::Water]))
 	{
 		cleanUp();

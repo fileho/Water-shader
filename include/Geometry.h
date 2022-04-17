@@ -15,7 +15,7 @@ public:
   // Creates simple quad with uniform color
   static Mesh<Vertex_Pos_Col> *CreateQuadColor();
   // Create simple quad with texture coordinates
-  static Mesh<Vertex_Pos_Tex> *CreateQuadTex();
+  static Mesh<Vertex_Pos> *CreateQuad();
   // Create simple quad with normals, tangents and texture coordinates
   static Mesh<Vertex_Pos_Nrm_Tgt_Tex> *CreateQuadNormalTangentTex();
   // Creates simple cube with colors
