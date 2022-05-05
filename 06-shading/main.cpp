@@ -838,20 +838,22 @@ void renderScene()
 
 	// --------------------------------------------------------------------------
 
+	
 	glEnable(GL_CLIP_DISTANCE0);
-
 	// refraction map
 	water->render_refractions();
 	draw_geometry();
 
 	// reflexion map
-	updateTransformBlock(camera.PlanarReflexion());
 	water->render_reflexions();
+	updateTransformBlock(camera.PlanarReflexion());
 	const glm::vec4 clippingPlane = glm::vec4(0, 1, 0, 0.8f);
 	draw_geometry(clippingPlane);
 
-	// main render
+	// main render	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, mainWindow.width, mainWindow.height);
+	//glViewport(0, 0, mainWindow.width, mainWindow.height);
 	glEnable(GL_MULTISAMPLE);
 	glClearColor(0.1f, 0.2f, 0.4f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

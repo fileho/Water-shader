@@ -324,7 +324,7 @@ void main()
   horizon *= horizon;
 
   // Calculate the Phong model terms: ambient, diffuse, specular
-  vec3 ambient = vec3(0.25f, 0.25f, 0.25f) * 3 * occlusion;
+  vec3 ambient = vec3(0.25f, 0.25f, 0.25f) * 5.0f * occlusion;
   vec3 diffuse = horizon * NdotL * lightColor / lengthSq;
   vec3 specular = horizon * specSample * lightColor * pow(NdotH, 64.0f) / lengthSq; // Defines shininess
 
@@ -427,6 +427,13 @@ layout (location = 2) uniform vec2 resolution;
 layout (location = 3) uniform vec4 viewPosWS;
 layout (location = 4) uniform vec4 wave[4];
 
+layout (std140) uniform TransformBlock
+{
+  // Transposed worldToView matrix - stored compactly as an array of 3 x vec4
+  mat3x4 worldToView;
+  mat4x4 projection;
+};
+
 in VertexData
 {
   vec2 uv;
@@ -454,6 +461,7 @@ float smoothEdges(float d) {
 void main()
 {
 	
+	
   // Calculate Bitangent with unrolled loop
   vec3 B = waveDx(wave[0]);
   B += waveDx(wave[1]);
@@ -469,6 +477,7 @@ void main()
   // Tangent space Normal
   vec3 N = cross(B, T);
   N = normalize(N);
+
   
 
   vec2 coords = vec2(gl_FragCoord.x / resolution.x, gl_FragCoord.y / resolution.y);
@@ -482,37 +491,45 @@ void main()
   linearD -= linearZ;
   d = remapDepth(linearD);
   
-  
   vec2 bumpCoords = sin(vIn.uv + vec2(time * 0.02f, time * 0.01f)) * 0.5f + 0.5f; // remap to [0, 1]
   vec2 bm = texture(bump, bumpCoords).rg * 2.0f - 1.0f; // remap to [-1,1]
-  
+  bm *= 0.5f; // scale down bump map offsets
+
+  // Calculate view space normals adjusted with bump map details
+  vec3 worldN = normalize(vec3(N.x + bm.x, N.z, N.y + bm.y));
+  vec3 viewN = vec4(worldN, 0.0f) * worldToView;
+	
   // Calculate sample offsets and scale it by depth for smooth edges
   vec3 view = viewPosWS.xyz - vIn.worldPos.xyz;
   float viewDistance = max(length(view), 10.0f);
-  vec2 offset = N.xy / 5.0f / viewDistance; // scale down normals based on view distance
-  offset += bm * 0.4f / viewDistance;
-  
-
-  vec3 refrac = texture(refraction, coords + offset).rgb;
-  vec3 reflex = texture(reflexion, vec2(coords.x, 1 - coords.y) - offset).rgb;
-  
   vec3 viewDir = normalize(view);
 
+  vec2 offset = viewN.xz / (viewDistance * 3.0f); // scale down normals based on view distance
+
+  vec3 refrac = texture(refraction, coords + offset).rgb;
+  vec3 reflex = texture(reflexion, vec2(coords.x, 1 - coords.y) - offset).rgb; 
+
+
   // Reflexion coefficient calculated using fresnel equations (n1 = 1, n2 = 1.333)
-  float angle = max(dot(viewDir, vec3(0,1,0)),0);
+  // For planar reflection we should take N as vec3(0, 1, 0), but we can mix in some details from normals 
+  vec3 coefNormal = mix(worldN, vec3(0, 1, 0), 0.85f); 
+  float angle = max(dot(viewDir, coefNormal),0);
   const float n2 = 1.333;
   float rhs = n2 * sqrt(1 - (1 / n2 * pow(sin(acos(angle)), 2)));
   float refCoef = pow((angle - rhs) / (angle + rhs), 2);
-  
+
+  // Schlick's approximation
   // float R0 = 0.02037;
   // float refCoef = R0 + (1 - R0) * pow(1 - max(dot(viewDir, vec3(0,1,0)), 0), 5);
-  
-  
 
-  oColor = mix(mix(vec4(refrac, 1.0), vec4(0, 0, 1, 1), 0.2), vec4(reflex,1), refCoef);
-  oColor = mix(mix(vec4(refrac, 1.0f), vec4(0, 0.5f, 0.8f, 1.0f), d), vec4(reflex,1), refCoef);
-  
-  //oColor = vec4(reflex, 1);
+  // This is more "realistic", works better for dirty water - lakes, sea; bad for clean swimming pool
+  // vec3 absorb = clamp(1 - d * 2.5f * vec3(0.8f, 0.6f, 0.4f), 0, 1);
+  // refrac *= absorb;
+  // oColor = mix(vec4(refrac, 1.0), vec4(reflex,1), refCoef);
+  // return;
+	
+  vec4 absorption = vec4(0.0f, 0.5f, 0.8f, 1.0f);
+  oColor = mix(mix(vec4(refrac, 1.0f), absorption, d), vec4(reflex,1), refCoef);	
 }
 )",
 	

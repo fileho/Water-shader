@@ -12,8 +12,8 @@ Water::Water() :
 	model_to_world_{ scale(glm::vec3(30, 1, 30)) },
 	start_time_{ clock::now() }
 {
-	refractions_.create_depth(resolution_);
-	reflections_.create(resolution_);
+	refractions_.create_depth(reflection_resolution());
+	reflections_.create(refraction_resolution());
 }
 
 // release the memory
@@ -30,6 +30,9 @@ void Water::set_program(GLuint program)
 void Water::render_refractions() const
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, refractions_.fbo);
+	const auto size = refraction_resolution();
+	glViewport(0, 0, size.x, size.y);
+	
 	glDisable(GL_MULTISAMPLE);
 	glClearColor(.1f, .1f, .7f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -38,6 +41,9 @@ void Water::render_refractions() const
 void Water::render_reflexions() const
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, reflections_.fbo);
+	const auto size = reflection_resolution();
+	glViewport(0, 0, size.x, size.y);
+	
 	glDisable(GL_MULTISAMPLE);
 	glClearColor(.1f, .3f, .7f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -49,7 +55,7 @@ void Water::draw(const glm::vec4& viewPosWS)
 	// set uniforms
 	glUniformMatrix3x4fv(0, 1, GL_FALSE, value_ptr(model_to_world_));
 	glUniform1f(1, get_time());
-	glUniform2fv(2, 1, value_ptr(resolution_));
+	glUniform2f(2, static_cast<GLfloat>(resolution_.x), static_cast<GLfloat>(resolution_.y));
 	glUniform4fv(3, 1, value_ptr(viewPosWS));
 	
 	glm::vec4 wave[] = 
@@ -85,22 +91,34 @@ void Water::draw(const glm::vec4& viewPosWS)
 void Water::set_resolution(int width, int height)
 {
 	resolution_ = glm::vec2(width, height);
-	glm::vec<2, GLuint> v = resolution_;
-	
-	reflections_.create(resolution_);
-	refractions_.create_depth(resolution_);
+
+	refractions_.create_depth(refraction_resolution());
+	reflections_.create(reflection_resolution());
 }
 
-void Water::render_target::create_depth(glm::vec<2, GLuint> resolution)
+void Water::set_quality(float lod)
 {
-	glGenFramebuffers(1, &fbo);
+	quality_ = lod;
+
+	refractions_.create_depth(refraction_resolution());
+	reflections_.create(reflection_resolution());
+}
+
+void Water::render_target::create_depth(vec2i resolution)
+{
+	if (fbo == 0)
+		glGenFramebuffers(1, &fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
+	if (glIsTexture(texture))
+		glDeleteTextures(1, &texture);
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, resolution.x, resolution.y, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
 
+	if (glIsTexture(depth))
+		glDeleteTextures(1, &depth);
 	glGenTextures(1, &depth);
 	glBindTexture(GL_TEXTURE_2D, depth);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, resolution.x, resolution.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
@@ -112,18 +130,28 @@ void Water::render_target::create_depth(glm::vec<2, GLuint> resolution)
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Water::render_target::create(glm::vec<2, GLuint> resolution)
+void Water::render_target::create(vec2i resolution)
 {
-	glGenFramebuffers(1, &fbo);
+	if (fbo == 0)
+		glGenFramebuffers(1, &fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
+	if (glIsTexture(texture))
+	{
+		glDeleteTextures(1, &texture);
+	}
 	glGenTextures(1, &texture);
+
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, resolution.x, resolution.y, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
 
+	if (glIsRenderbuffer(depth))
+		glDeleteRenderbuffers(1, &depth);
+	
 	glGenRenderbuffers(1, &depth);
 	glBindRenderbuffer(GL_RENDERBUFFER, depth);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, resolution.x, resolution.y);
@@ -134,16 +162,24 @@ void Water::render_target::create(glm::vec<2, GLuint> resolution)
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
 Water::render_target::~render_target() noexcept
 {
-	glDeleteFramebuffers(1, &fbo);
-	glDeleteTextures(1, &texture);
-	
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+	if (glIsFramebuffer(fbo))
+		glDeleteFramebuffers(1, &fbo);
+	if (glIsTexture(texture))
+		glDeleteTextures(1, &texture);
+
 	if (glIsTexture(depth))
 		glDeleteTextures(1, &depth);
-	else
+	else if (glIsRenderbuffer(depth))
 		glDeleteRenderbuffers(1, &depth);
 }
 
@@ -152,6 +188,29 @@ float Water::get_time() const
 	const time_t t = clock::now();
 	const auto delta = std::chrono::duration_cast<std::chrono::milliseconds>(t - start_time_);
 	return static_cast<float>(static_cast<double>(delta.count()) / 500.0);
+}
+
+vec2i Water::reflection_resolution() const
+{
+	glm::vec2 size = resolution_;
+
+	const float scale = 1.0f / (quality_ + 1);
+
+	size *= scale;
+
+	return vec2i(size);
+}
+
+vec2i Water::refraction_resolution() const
+{
+	glm::vec2 size = resolution_;
+
+	const float scale = 1.0f / (0.5f * quality_ + 1);
+
+	size *= scale;
+
+
+	return vec2i(size);
 }
 
 

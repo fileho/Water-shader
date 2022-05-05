@@ -7,6 +7,8 @@
 #include <glad/glad.h>
 #include <chrono>
 
+typedef glm::vec<2, GLuint> vec2i;
+
 class Water
 {
 	typedef Mesh<Vertex_Pos> mesh;
@@ -23,7 +25,7 @@ public:
 	void render_reflexions() const;
 	void draw(const glm::vec4& viewPosWS);
 	void set_resolution(int width, int height);
-
+	void set_quality(float lod);
 private:
 	struct render_target
 	{
@@ -31,8 +33,8 @@ private:
 		GLuint texture{};
 		GLuint depth{};
 
-		void create_depth(glm::vec<2, GLuint> resolution);
-		void create(glm::vec<2, GLuint> resolution);
+		void create_depth(vec2i resolution);
+		void create(vec2i resolution);
 		
 		~render_target() noexcept;
 	};
@@ -44,13 +46,17 @@ private:
 	glm::mat3x4 model_to_world_{};
 	GLuint program_{};
 	GLuint bump_map_{};
+	float quality_{};
+
+	
 
 
 	time_t start_time_;
-	glm::vec2 resolution_ = glm::vec2(800, 600);
-
+	glm::vec<2, GLuint> resolution_ = glm::vec2(800, 600);
 	const float tau_ = 6.28318530718f;
 	[[nodiscard]] float get_time() const;
+	[[nodiscard]] vec2i reflection_resolution() const;
+	[[nodiscard]] vec2i refraction_resolution() const;
 };
 
 #endif
