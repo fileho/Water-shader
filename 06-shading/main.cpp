@@ -59,7 +59,7 @@ struct Window
 // Near clip plane settings
 float nearClipPlane = 0.5f;
 // Far clip plane settings
-float farClipPlane = 200.1f;
+float farClipPlane = 150.1f;
 // Camera FOV
 float fov = 45.0f;
 
@@ -851,9 +851,8 @@ void renderScene()
 	draw_geometry(clippingPlane);
 
 	// main render	
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glViewport(0, 0, mainWindow.width, mainWindow.height);
-	//glViewport(0, 0, mainWindow.width, mainWindow.height);
 	glEnable(GL_MULTISAMPLE);
 	glClearColor(0.1f, 0.2f, 0.4f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -861,8 +860,6 @@ void renderScene()
 
 	draw_geometry();
 	water->draw(camera.GetViewToWorld()[3]);
-
-	return;
 
 	// --------------------------------------------------------------------------
 

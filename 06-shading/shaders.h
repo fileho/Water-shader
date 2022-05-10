@@ -450,7 +450,8 @@ vec3 waveDy(vec4 w) {
 }
 
 float remapDepth(float d) {
-  return min(d * 5.0f + 0.1f, 1.0f);
+  //return min(d * 6.0f + 0.2f, 1.0f);
+  return 2 / (1 + pow(20, -(d * 5 + 0.2f))) - 1; // use sigmoid like function remapped to [-1, 1] (0 at 0)
 }
 
 float smoothEdges(float d) {
@@ -485,7 +486,7 @@ void main()
   // Calculate depth of the water - refraction map depth - surface depth
   float z = gl_FragCoord.z;
   float n = 0.5f;
-  float f = 200.1f;
+  float f = 150.1f;
   float linearZ = (2.0 * n) / (f + n - z*(f-n));
   float linearD = (2.0 * n) / (f + n - d*(f-n));
   linearD -= linearZ;
@@ -511,9 +512,8 @@ void main()
 
 
   // Reflexion coefficient calculated using fresnel equations (n1 = 1, n2 = 1.333)
-  // For planar reflection we should take N as vec3(0, 1, 0), but we can mix in some details from normals 
-  vec3 coefNormal = mix(worldN, vec3(0, 1, 0), 0.85f); 
-  float angle = max(dot(viewDir, coefNormal),0);
+  // Use normal pointing directly up, otherwise it add a lot of noise
+  float angle = max(dot(viewDir, vec3(0, 1, 0)),0);
   const float n2 = 1.333;
   float rhs = n2 * sqrt(1 - (1 / n2 * pow(sin(acos(angle)), 2)));
   float refCoef = pow((angle - rhs) / (angle + rhs), 2);
@@ -528,7 +528,7 @@ void main()
   // oColor = mix(vec4(refrac, 1.0), vec4(reflex,1), refCoef);
   // return;
 	
-  vec4 absorption = vec4(0.0f, 0.5f, 0.8f, 1.0f);
+  vec4 absorption = vec4(0.0f, 0.5f, 0.9f, 1.0f);
   oColor = mix(mix(vec4(refrac, 1.0f), absorption, d), vec4(reflex,1), refCoef);	
 }
 )",
