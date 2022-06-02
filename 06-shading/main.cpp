@@ -742,7 +742,7 @@ void updateTransformBlock(glm::mat4x3 cameraWorldToView = camera.GetWorldToView(
 void draw_geometry(glm::vec4 clippingPlane = glm::vec4(0,0,0,0))
 {
 	// Light position
-	static glm::vec3 lightPosition(-3.0f, 8.0f, 25.0f);
+	static glm::vec3 lightPosition(-0.0f, 10.0f, 30.0f);
 
 	// Draw the scene floor:
 	{
@@ -845,7 +845,7 @@ void renderScene()
 	draw_geometry();
 
 	// reflexion map
-	water->render_reflexions();
+	water->render_reflections();
 	updateTransformBlock(camera.PlanarReflexion());
 	const glm::vec4 clippingPlane = glm::vec4(0, 1, 0, 0.8f);
 	draw_geometry(clippingPlane);

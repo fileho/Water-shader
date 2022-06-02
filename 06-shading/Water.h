@@ -22,7 +22,7 @@ public:
 	void set_program(GLuint program);
 	void set_bump_map(GLuint bump_map) { bump_map_ = bump_map; }
 	void render_refractions() const;
-	void render_reflexions() const;
+	void render_reflections() const;
 	void draw(const glm::vec4& viewPosWS);
 	void set_resolution(int width, int height);
 	void set_quality(float lod);
@@ -47,9 +47,6 @@ private:
 	GLuint program_{};
 	GLuint bump_map_{};
 	float quality_{};
-
-	
-
 
 	time_t start_time_;
 	glm::vec<2, GLuint> resolution_ = glm::vec2(800, 600);

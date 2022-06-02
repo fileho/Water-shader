@@ -38,14 +38,14 @@ void Water::render_refractions() const
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Water::render_reflexions() const
+void Water::render_reflections() const
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, reflections_.fbo);
 	const auto size = reflection_resolution();
 	glViewport(0, 0, size.x, size.y);
 	
 	glDisable(GL_MULTISAMPLE);
-	glClearColor(.1f, .3f, .7f, 1.0f);
+	glClearColor(.1f, .2f, .4f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -140,9 +140,7 @@ void Water::render_target::create(vec2i resolution)
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	if (glIsTexture(texture))
-	{
 		glDeleteTextures(1, &texture);
-	}
 	glGenTextures(1, &texture);
 
 	glBindTexture(GL_TEXTURE_2D, texture);

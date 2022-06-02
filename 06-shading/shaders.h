@@ -451,18 +451,21 @@ vec3 waveDy(vec4 w) {
 
 float remapDepth(float d) {
   //return min(d * 6.0f + 0.2f, 1.0f);
-  return 2 / (1 + pow(20, -(d * 5 + 0.2f))) - 1; // use sigmoid like function remapped to [-1, 1] (0 at 0)
+  return 2 / (1 + pow(20, -(d * 10 + 0.05f))) - 1; // use sigmoid like function remapped to [-1, 1] (0 at 0)
 }
 
-float smoothEdges(float d) {
-  return clamp((d - 0.0f), 0.0f, 0.1f);
+float smoothEdges() {
+  float u = vIn.uv.x;
+  float v = vIn.uv.y;
+  u = min(u, 1 - u);
+  v = min(v, 1 - v);
+  float m = min(u, v);
+  return min(1.0f, 10.0f * m * m);
 }
 	
 
 void main()
 {
-	
-	
   // Calculate Bitangent with unrolled loop
   vec3 B = waveDx(wave[0]);
   B += waveDx(wave[1]);
@@ -478,7 +481,6 @@ void main()
   // Tangent space Normal
   vec3 N = cross(B, T);
   N = normalize(N);
-
   
 
   vec2 coords = vec2(gl_FragCoord.x / resolution.x, gl_FragCoord.y / resolution.y);
@@ -505,24 +507,35 @@ void main()
   float viewDistance = max(length(view), 10.0f);
   vec3 viewDir = normalize(view);
 
-  vec2 offset = viewN.xz / (viewDistance * 3.0f); // scale down normals based on view distance
+  vec2 offset = viewN.xz / (viewDistance * 3.0f + 1.0f); // scale down normals based on view distance
 
   vec3 refrac = texture(refraction, coords + offset).rgb;
-  vec3 reflex = texture(reflexion, vec2(coords.x, 1 - coords.y) - offset).rgb; 
+  vec3 reflex = texture(reflexion, vec2(coords.x + offset.x, 1 - (coords.y + offset.y))).rgb; 
 
 
   // Reflexion coefficient calculated using fresnel equations (n1 = 1, n2 = 1.333)
   // Use normal pointing directly up, otherwise it add a lot of noise
   float angle = max(dot(viewDir, vec3(0, 1, 0)),0);
   const float n2 = 1.333;
-  float rhs = n2 * sqrt(1 - (1 / n2 * pow(sin(acos(angle)), 2)));
-  float refCoef = pow((angle - rhs) / (angle + rhs), 2);
+  float rhs = sqrt(1 - (1 / n2 * pow(sin(acos(angle)), 2)));
+  float rs = pow((angle - n2 * rhs) / (angle + n2 * rhs), 2);
+  float rp = pow((rhs - n2 * angle) / (rhs + n2 * angle), 2);
+  float refCoef = rs + rp;
 
   // Schlick's approximation
   // float R0 = 0.02037;
   // float refCoef = R0 + (1 - R0) * pow(1 - max(dot(viewDir, vec3(0,1,0)), 0), 5);
 
-  // This is more "realistic", works better for dirty water - lakes, sea; bad for clean swimming pool
+  // specular highlights
+  vec3 lightDir = vec3(0, 10, 5);
+  lightDir = normalize(lightDir);
+  vec3 halfDir = normalize(viewDir + lightDir);
+  float NdotH = max(0, dot(worldN, halfDir));
+  vec3 specular = 2 * vec3(1, 1, 1) * pow(NdotH, 128.0f) * smoothEdges();
+  reflex += specular;
+
+	
+  // This is more "realistic" absorption, works better for dirty water - lakes, sea; bad for clean swimming pool
   // vec3 absorb = clamp(1 - d * 2.5f * vec3(0.8f, 0.6f, 0.4f), 0, 1);
   // refrac *= absorb;
   // oColor = mix(vec4(refrac, 1.0), vec4(reflex,1), refCoef);
