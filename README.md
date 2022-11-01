@@ -3,6 +3,19 @@ Based on NPGR019 06-shading example by Martin Kahoun.
 
 Assingment for CGCG by Jiří Filek
 
+## Properties
+This program implements planar reflections, refractions, and the volumetric effect. 
+
+It uses a combination of 4 sin waves to offset the y coordinate of vertices for water. 
+In the fragment shader, we can recalculate normals using derivations. Then we can use these normals to offset sample points to the reflection and refraction map. It uses view space normals scaled down by the camera distance.
+
+It uses the fresnel equations to combine refractions and reflections properly. 
+
+The mesh is tesselated in a tesselation shader.
+
+The volumetric effect blends in a more blueish color based on the water depth.
+
+
 # NPGR019
 NPGR019 is a source code repository for [lab practices](https://cgg.mff.cuni.cz/~kahoun/labs.npgr019.php)
 of the subject [Real-time graphics on GPU](https://is.cuni.cz/studium/predmety/index.php?do=predmet&kod=NPGR019).
